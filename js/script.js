@@ -91,9 +91,8 @@ window.addEventListener('DOMContentLoaded', () => {
     //modal
     const modal = document.querySelector('.modal'),
     modalOn = document.querySelectorAll('[data-modal]'),
-    modalOff = document.querySelectorAll('[data-close]'),
     page = document.documentElement,
-    proposal = setTimeout(openModal, 10000);    
+    proposal = setTimeout(openModal, 80000);    
 
     function openModal() {
         modal.classList.add('show');
@@ -114,12 +113,8 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    modalOff.forEach(value => {
-        value.addEventListener('click', closeModal);
-    });
-
     modal.addEventListener('click', e => {
-        if(e.target === modal) {
+        if(e.target === modal || e.target.getAttribute('data-close') === '') {
             closeModal();
         }
     });
@@ -178,31 +173,93 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    new Menu(
-        "img/tabs/vegy.jpg",
-        "vegy",
-        'Меню "Фитнес"',
-        'Меню "Фитнес" - это новый подход к приготовлению блюд: больше свежих овощей и фруктов. Продукт активных и здоровых людей. Это абсолютно новый продукт с оптимальной ценой и высоким качеством!',
-        10,
-        '.menu .container'
-        ).rendMenu();
+    const postResource = async (url) => {
+        const res = await fetch(url);
 
-    new Menu(
-        "img/tabs/elite.jpg",
-        "elite",
-        'Меню “Премиум”',
-        'В меню “Премиум” мы используем не только красивый дизайн упаковки, но и качественное исполнение блюд. Красная рыба, морепродукты, фрукты - ресторанное меню без похода в ресторан!',
-        20,
-        '.menu .container'
-        ).rendMenu();
+        if(!res.ok) {
+            throw new Error(`PIZDECSUKABLY\nurl: ${url}\nstatus: ${res.status}`)
+        }
 
-    new Menu(
-        "img/tabs/post.jpg",
-        "post",
-        'Меню "Постное"',
-        'Меню “Постное” - это тщательный подбор ингредиентов: полное отсутствие продуктов животного происхождения, молоко из миндаля, овса, кокоса или гречки, правильное количество белков за счет тофу и импортных вегетарианских стейков. ',
-        15,
-        '.menu .container'
-        ).rendMenu();
+        return await res.json();
+    };
 
+    postResource('http://localhost:3000/menu')
+    .then(data => {
+        data.forEach(({img, altimg, title, descr, price}) => {
+            new Menu(img, altimg, title, descr, price, '.menu .container').rendMenu();
+        });
+    });
+    //forms
+    const forms = document.querySelectorAll('form');
+
+    const message = {
+        success: 'Good!',
+        fail: 'Fuck@',
+        load: 'img/form/spinner.svg'
+    };
+
+    const postData = async (url, data) => {
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-type': 'application/json'
+            },
+            body: data
+        });
+
+        return await res.json();
+    };
+
+    function bindPostData(form) {
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+
+            const statusMessage = document.createElement('img');
+
+            statusMessage.src = message.load;
+            statusMessage.style.cssText = `
+                display: block;
+                margin: 0 auto;`;
+
+            form.insertAdjacentElement('afterend', statusMessage);
+
+            const formData = new FormData(form),
+                  json = JSON.stringify(Object.fromEntries(formData.entries()));
+            
+            postData('http://localhost:3000/requests', json)
+            .then(response => {
+                console.log(response);
+                showMessageModal(message.success);
+                statusMessage.remove();
+            })
+            .catch(() => showMessageModal(message.fail))
+            .finally(() => form.reset());
+        });
+    }
+
+    forms.forEach(value => {
+        bindPostData(value);
+    });
+
+    function showMessageModal(message) {
+        const oldContent = document.querySelector('.modal__content');
+
+        oldContent.classList.add('hide');
+        
+        openModal();
+
+        const newContent = document.createElement('div');
+        newContent.classList.add('modal__content');
+        newContent.innerHTML = `
+        <div data-close="" class="modal__close">×</div>
+        <div class="modal__title">${message}</div>`;
+        document.querySelector('.modal__dialog').append(newContent);
+
+        setTimeout(() => {
+            closeModal();
+            newContent.remove();
+            oldContent.classList.remove('hide');
+            oldContent.classList.add('show');
+        }, 4000);
+    }
 });
